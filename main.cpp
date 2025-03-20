@@ -5,15 +5,18 @@
 
 struct MatrixView
 {
-    std::span<int> data;
+private:
     int row_size;
-    int rows_start;
-    int rows_end;
-    int cols_start;
-    int cols_end;
+    std::span<int> data;
 
-    MatrixView(std::span<int> data, int row_size, int rows_start, int rows_end, int cols_start, int cols_end)
-        : data(data), row_size(row_size), rows_start(rows_start), rows_end(rows_end), cols_start(cols_start), cols_end(cols_end)
+    int row_start;
+    int row_end;
+    int col_start;
+    int col_end;
+    
+public:
+    MatrixView(std::span<int> data, int row_size, int row_start, int row_end, int col_start, int col_end)
+        : data(data), row_size(row_size), row_start(row_start), row_end(row_end), col_start(col_start), col_end(col_end)
     {
     }
 
@@ -24,39 +27,81 @@ struct MatrixView
 
     int& operator()(int row, int col)
     {
-        return data[row_size * (rows_start + row) + cols_start + col];
+        return data[row_size * (row_start + row) + col_start + col];
     }
 
     int row_count() const
     {
-        return rows_end - rows_start;
+        return row_end - row_start;
     }
 
     int col_count() const
     {
-        return cols_end - cols_start;
+        return col_end - col_start;
     }
 
     MatrixView getSubMatrix(int row_start, int row_end, int col_start, int col_end)
     {
-        return MatrixView(data, row_size, row_start, row_end, col_start, col_end);
+        return MatrixView(data, row_size, 
+            this->row_start + row_start, 
+            this->row_start + row_end, 
+            this->col_start + col_start, 
+            this->col_start + col_end);
     }
 };
 
 void naiveMatMul(MatrixView A, MatrixView B, MatrixView C)
 {
-    for (int i = 0; i < C.rows_end - C.rows_start; i++)
+    for (int i = 0; i < C.row_count(); i++)
     {
-        for (int j = 0; j < C.cols_end - C.cols_start; j++)
+        for (int j = 0; j < C.col_count(); j++)
         {
             C(i, j) = 0;
-            for (int k = 0; k < A.cols_end - A.cols_start; k++)
+            for (int k = 0; k < A.col_count(); k++)
             {
                 C(i, j) += A(i, k) * B(k, j);
             }
         }
     }
 }
+
+void recursiveMatMul(MatrixView A, MatrixView B, MatrixView C)
+{
+    if (A.row_count() == 1 && A.col_count() == 1 && B.row_count() == 1 && B.col_count() == 1)
+    {
+        C(0, 0) += A(0, 0) * B(0, 0);
+    }
+    else
+    {
+        int row_mid = A.row_count() / 2;
+        int col_mid = A.col_count() / 2;
+
+        MatrixView A11 = A.getSubMatrix(0, row_mid, 0, col_mid);
+        MatrixView A12 = A.getSubMatrix(0, row_mid, col_mid, A.col_count());
+        MatrixView A21 = A.getSubMatrix(row_mid, A.row_count(), 0, col_mid);
+        MatrixView A22 = A.getSubMatrix(row_mid, A.row_count(), col_mid, A.col_count());
+
+        MatrixView B11 = B.getSubMatrix(0, row_mid, 0, col_mid);
+        MatrixView B12 = B.getSubMatrix(0, row_mid, col_mid, B.col_count());
+        MatrixView B21 = B.getSubMatrix(row_mid, B.row_count(), 0, col_mid);
+        MatrixView B22 = B.getSubMatrix(row_mid, B.row_count(), col_mid, B.col_count());
+
+        MatrixView C11 = C.getSubMatrix(0, row_mid, 0, col_mid);
+        MatrixView C12 = C.getSubMatrix(0, row_mid, col_mid, C.col_count());
+        MatrixView C21 = C.getSubMatrix(row_mid, C.row_count(), 0, col_mid);
+        MatrixView C22 = C.getSubMatrix(row_mid, C.row_count(), col_mid, C.col_count());
+
+        recursiveMatMul(A11, B11, C11);
+        recursiveMatMul(A12, B21, C11);
+        recursiveMatMul(A11, B12, C12);
+        recursiveMatMul(A12, B22, C12);
+        recursiveMatMul(A21, B11, C21);
+        recursiveMatMul(A22, B21, C21);
+        recursiveMatMul(A21, B12, C22);
+        recursiveMatMul(A22, B22, C22);
+    }
+}
+
 
 int main()
 {
