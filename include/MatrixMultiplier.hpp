@@ -10,8 +10,6 @@
 #undef min
 #undef max
 
-std::set<std::string> logs{};
-
 class MatrixMultiplier
 {
     struct Multiplier

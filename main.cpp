@@ -39,7 +39,5 @@ int main()
 
     MatrixMultiplier::hybrid_multiplier(125, 80, 125)(A_view, B_view, C_view);
 
-    for (auto log : logs) std::cout << log;
-
     return 0;
 }
