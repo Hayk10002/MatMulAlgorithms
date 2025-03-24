@@ -53,4 +53,49 @@ public:
             for (int j = 0; j < col_count(); j++)
                 (*this)(i, j) = 0;
     }
+
+    MatrixView& operator=(MatrixView O)
+    {
+        for (int i = 0; i < row_count() && i < O.row_count(); i++)
+            for (int j = 0; j < col_count() && i < O.col_count(); j++)
+                (*this)(i, j) = O(i, j);
+
+        return *this;
+    }
+
+    MatrixView& operator+=(MatrixView O)
+    {
+        for (int i = 0; i < row_count() && i < O.row_count(); i++)
+            for (int j = 0; j < col_count() && i < O.col_count(); j++)
+                (*this)(i, j) += O(i, j);
+
+        return *this;
+    }
+
+    MatrixView& operator-=(MatrixView O)
+    {
+        for (int i = 0; i < row_count() && i < O.row_count(); i++)
+            for (int j = 0; j < col_count() && i < O.col_count(); j++)
+                (*this)(i, j) -= O(i, j);
+
+        return *this;
+    }
 };
+
+void add(MatrixView A, MatrixView B, MatrixView C) // C = A + B
+{
+    int row_count = std::min({A.row_count(), B.row_count(), C.row_count()});
+    int col_count = std::min({A.col_count(), B.col_count(), C.col_count()});
+    for (int i = 0; i < row_count; i++)
+            for (int j = 0; j < col_count; j++)
+                C(i, j) = A(i, j) + B(i, j);
+}
+
+void sub(MatrixView A, MatrixView B, MatrixView C) // C = A - B
+{
+    int row_count = std::min({A.row_count(), B.row_count(), C.row_count()});
+    int col_count = std::min({A.col_count(), B.col_count(), C.col_count()});
+    for (int i = 0; i < row_count; i++)
+            for (int j = 0; j < col_count; j++)
+                C(i, j) = A(i, j) - B(i, j);
+}
