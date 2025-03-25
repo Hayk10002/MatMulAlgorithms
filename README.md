@@ -75,7 +75,7 @@ The benchmarks show though that the speedup is not as much as could be expected.
 
 ### Recursive
 
-This algorithm divides the matrices into 4 submatrices recursively, until some size, and then runs the cache friendy naive algorithm on the. It does not divide the matrices until size 1x1x1, because the benchmarking process showed that the time in that case skyrockets too high to benchmark the algorithm for sufficiently larg matrices.
+This algorithm divides the matrices into 4 submatrices recursively, until some size, and then runs the cache friendy naive algorithm on them. It does not divide the matrices until size 1x1x1, because the benchmarking process showed that the time in that case skyrockets too high to benchmark the algorithm for sufficiently large matrices.
 
 ### Strassen's algorithm
 
