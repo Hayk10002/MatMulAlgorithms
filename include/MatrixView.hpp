@@ -28,6 +28,11 @@ public:
         return data[row_size * (row_start + row) + col_start + col];
     }
 
+    int operator()(int row, int col) const 
+    {
+        return data[row_size * (row_start + row) + col_start + col];
+    }
+
     int row_count() const
     {
         return row_end - row_start;

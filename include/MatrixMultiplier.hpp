@@ -33,21 +33,23 @@ class MatrixMultiplier
 public:
     void naive_iterative(MatrixView A, MatrixView B, MatrixView C) const
     { 
-        for (int i = 0; i < C.row_count(); i++)
-            for (int j = 0; j < C.col_count(); j++)
+        int n = A.row_count(), m = A.col_count(), p = B.col_count();
+        for (int i = 0; i < n; i++)
+            for (int j = 0; j < p; j++)
             {
                 C(i, j) = 0;
-                for (int k = 0; k < A.col_count(); k++)
+                for (int k = 0; k < m; k++)
                     C(i, j) += A(i, k) * B(k, j);
             }
     }
 
-    void better_iterative(MatrixView A, MatrixView B, MatrixView C) const
-    { 
+    void naive_cache_friendly_iterative(MatrixView A, MatrixView B, MatrixView C) const
+    {
+        int n = A.row_count(), m = A.col_count(), p = B.col_count();
         C.clear();
-        for (int i = 0; i < C.row_count(); i++)
-            for (int k = 0; k < A.col_count(); k++)
-                for (int j = 0; j < C.col_count(); j++)
+        for (int i = 0; i < n; i++)
+            for (int k = 0; k < m; k++)
+                for (int j = 0; j < p; j++)
                     C(i, j) += A(i, k) * B(k, j);
     }
 
@@ -56,14 +58,15 @@ public:
         int block_size;
         void operator()(const MatrixMultiplier& mult, MatrixView A, MatrixView B, MatrixView C)
         {
+            int n = A.row_count(), m = A.col_count(), p = B.col_count();
             C.clear();
 
-            for (int i = 0; i < C.row_count(); i += block_size)            
-                for (int j = 0; j < C.col_count(); j += block_size)                
-                    for (int k = 0; k < A.col_count(); k += block_size)                    
-                        mult(A.getSubMatrix(i, std::min(i + block_size, C.row_count()), k, std::min(k + block_size, A.col_count())),
-                            B.getSubMatrix(k, std::min(k + block_size, A.col_count()), j, std::min(j + block_size, C.col_count())),
-                            C.getSubMatrix(i, std::min(i + block_size, C.row_count()), j, std::min(j + block_size, C.col_count())));
+            for (int i = 0; i < n; i += block_size)            
+                for (int k = 0; k < m; k += block_size)                    
+                    for (int j = 0; j < p; j += block_size)                
+                        mult(A.getSubMatrix(i, std::min(i + block_size, n), k, std::min(k + block_size, m)),
+                            B.getSubMatrix(k, std::min(k + block_size, m), j, std::min(j + block_size, p)),
+                            C.getSubMatrix(i, std::min(i + block_size, n), j, std::min(j + block_size, p)));
         }
     };
 
@@ -209,7 +212,7 @@ public:
     }
 
     static MatrixMultiplier naive_iterative_mutliplier;
-    static MatrixMultiplier better_iterative_mutliplier;
+    static MatrixMultiplier naive_cache_friendly_mutliplier;
     static MatrixMultiplier full_recursive_mutliplier;
     static MatrixMultiplier cache_aware_blocked_multiplier;
     static MatrixMultiplier hybrid_multiplier(int N, int M, int P)
@@ -218,7 +221,7 @@ public:
         return  into_blocks_then(max_power_of_2_less_than_NMP,
                 strassen_then ([](int n, int m, int p){ return n * m + m * p + n * p > getL1CacheSize() / sizeof(int); },
                 recursive_then([](int n, int m, int p){ return n * m + m * p + n * p > getL1CacheSize() / sizeof(int); },
-                better_iterative_mutliplier
+                naive_cache_friendly_mutliplier
         )));
     }
 
@@ -235,8 +238,8 @@ public:
 };
 
 MatrixMultiplier MatrixMultiplier::naive_iterative_mutliplier{one_strategy(&MatrixMultiplier::naive_iterative)};
-MatrixMultiplier MatrixMultiplier::better_iterative_mutliplier{one_strategy(&MatrixMultiplier::better_iterative)};
+MatrixMultiplier MatrixMultiplier::naive_cache_friendly_mutliplier{one_strategy(&MatrixMultiplier::naive_cache_friendly_iterative)};
 MatrixMultiplier MatrixMultiplier::full_recursive_mutliplier{one_strategy(&MatrixMultiplier::recursive)};
 MatrixMultiplier MatrixMultiplier::cache_aware_blocked_multiplier(
     MatrixMultiplier::into_blocks_then(sqrt(getL1CacheSize() / sizeof(int) / 4),
-    MatrixMultiplier::better_iterative_mutliplier));
+    MatrixMultiplier::naive_cache_friendly_mutliplier));
