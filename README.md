@@ -90,7 +90,7 @@ This algorithm splits the matrices into 4 smaller ones, the top left matrix size
 
 | Algorithm | 1000x1000 | 1024x1024 | 2000x2000 | 2048x2048 | 3000x3000 |
 | :-------- | :-------: | :-------: | :-------: | :-------: | :-------: |
-| Naive | 0.938s | 2.680s | - | - | - |
+| Naive | 0.938s | 2.680s | (too long) | (too long) | (too long) |
 | Naive cache-friendly | 0.205s | 0.214s | 2.80s | 3.00s | 8.46s |
 | Blocked (cache-aware) | 0.254s | 0.284s | 1.99s | 2.43s | 6.84s |
 | Recursive until size 4 | 0.202s | 0.214s | 2.64s | 3.14s | 8.37s |
