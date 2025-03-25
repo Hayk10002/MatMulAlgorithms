@@ -67,8 +67,13 @@ int main(int argc, char* argv[])
     int M = std::stoi(argv[2]);
     int P = std::stoi(argv[3]);
 
-    //std::cout << std::format("Naive                  (MatrixMultiplier): {:<8}\n", time(MatrixMultiplier::naive_iterative_mutliplier,      N, M, P));
-    //std::cout << std::format("Naive                                    : {:<8}\n", time(naiveMatMul,                                       N, M, P));
+    if (N <= 1024 && M <= 1024 && P <= 1024)
+    {
+
+    std::cout << std::format("Naive                  (MatrixMultiplier): {:<8}\n", time(MatrixMultiplier::naive_iterative_mutliplier,      N, M, P));
+    std::cout << std::format("Naive                                    : {:<8}\n", time(naiveMatMul,                                       N, M, P));
+    
+    }
     std::cout << std::format("Cache-friendly naive   (MatrixMultiplier): {:<8}\n", time(MatrixMultiplier::naive_cache_friendly_mutliplier, N, M, P));
     std::cout << std::format("Cache-friendly naive                     : {:<8}\n", time(naiveCacheFriendlyMatMul,                          N, M, P));
     std::cout << std::format("Cache-aware-blocked    (MatrixMultiplier): {:<8}\n", time(MatrixMultiplier::cache_aware_blocked_multiplier,  N, M, P));
