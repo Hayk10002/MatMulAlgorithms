@@ -36,23 +36,23 @@ $ your/path/to/exe/main.exe {A_row_count} {A_col_count} {B_col_count} # other di
 (for inputs 1024 1024 1024)
 
 ```
-Naive                  (MatrixMultiplier): 2680739600ns
-Naive                                    : 2742736300ns
-Cache-friendly naive   (MatrixMultiplier): 214720300ns
-Cache-friendly naive                     : 223352700ns
-Cache-aware-blocked    (MatrixMultiplier): 284380500ns
-Cache-aware-blocked                      : 392763600ns
-Recursive until size 4 (MatrixMultiplier): 214823800ns
-Recursive until size 8 (MatrixMultiplier): 221695200ns
-Recursive until size 16(MatrixMultiplier): 219338200ns
-Recursive until size 32(MatrixMultiplier): 229016900ns
-Recursive until size 64(MatrixMultiplier): 232560400ns
-Strassen until size 4  (MatrixMultiplier): 285143900ns
-Strassen until size 8  (MatrixMultiplier): 309053100ns
-Strassen until size 16 (MatrixMultiplier): 234409600ns
-Strassen until size 32 (MatrixMultiplier): 220563500ns
-Strassen until size 64 (MatrixMultiplier): 213096900ns
-Hybrid                 (MatrixMultiplier): 172983600ns
+Naive                  (MatrixMultiplier):  2680ms
+Naive                                    :  2742ms
+Cache-friendly naive   (MatrixMultiplier):   214ms
+Cache-friendly naive                     :   223ms
+Cache-aware-blocked    (MatrixMultiplier):   284ms
+Cache-aware-blocked                      :   392ms
+Recursive until size 4 (MatrixMultiplier):   214ms
+Recursive until size 8 (MatrixMultiplier):   221ms
+Recursive until size 16(MatrixMultiplier):   219ms
+Recursive until size 32(MatrixMultiplier):   229ms
+Recursive until size 64(MatrixMultiplier):   232ms
+Strassen until size 4  (MatrixMultiplier):   285ms
+Strassen until size 8  (MatrixMultiplier):   309ms
+Strassen until size 16 (MatrixMultiplier):   234ms
+Strassen until size 32 (MatrixMultiplier):   220ms
+Strassen until size 64 (MatrixMultiplier):   213ms
+Hybrid                 (MatrixMultiplier):   172ms
 ```
 
 ## Benchmarked Algorithms

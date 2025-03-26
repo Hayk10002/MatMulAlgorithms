@@ -55,6 +55,7 @@ MatrixMultiplier strassen_until_size(int size)
 
 int main(int argc, char* argv[])
 {
+    auto to_ms = [](auto t){ return std::chrono::duration_cast<std::chrono::milliseconds>(t); };
     if (argc != 4)
     {
         std::cerr << "Usage: " << argv[0] << " <A_row_count> <A_col_count> <B_col_count>.";
@@ -70,30 +71,30 @@ int main(int argc, char* argv[])
     if (N <= 1024 && M <= 1024 && P <= 1024)
     {
 
-    std::cout << std::format("Naive                  (MatrixMultiplier): {:<8}\n", time(MatrixMultiplier::naive_iterative_mutliplier,      N, M, P));
-    std::cout << std::format("Naive                                    : {:<8}\n", time(naiveMatMul,                                       N, M, P));
+    std::cout << std::format("Naive                  (MatrixMultiplier): {:>7}\n", to_ms(time(MatrixMultiplier::naive_iterative_mutliplier,      N, M, P)));
+    std::cout << std::format("Naive                                    : {:>7}\n", to_ms(time(naiveMatMul,                                       N, M, P)));
     
     }
-    std::cout << std::format("Cache-friendly naive   (MatrixMultiplier): {:<8}\n", time(MatrixMultiplier::naive_cache_friendly_mutliplier, N, M, P));
-    std::cout << std::format("Cache-friendly naive                     : {:<8}\n", time(naiveCacheFriendlyMatMul,                          N, M, P));
-    std::cout << std::format("Cache-aware-blocked    (MatrixMultiplier): {:<8}\n", time(MatrixMultiplier::cache_aware_blocked_multiplier,  N, M, P));
-    std::cout << std::format("Cache-aware-blocked                      : {:<8}\n", time(cacheFriendlyBlockMatMul,                          N, M, P));
-    std::cout << std::format("Recursive until size 4 (MatrixMultiplier): {:<8}\n", time(recursive_until_size(4),                           N, M, P));
-    std::cout << std::format("Recursive until size 8 (MatrixMultiplier): {:<8}\n", time(recursive_until_size(8),                           N, M, P));
-    std::cout << std::format("Recursive until size 16(MatrixMultiplier): {:<8}\n", time(recursive_until_size(16),                          N, M, P));
-    std::cout << std::format("Recursive until size 32(MatrixMultiplier): {:<8}\n", time(recursive_until_size(32),                          N, M, P));
-    std::cout << std::format("Recursive until size 64(MatrixMultiplier): {:<8}\n", time(recursive_until_size(64),                          N, M, P));
+    std::cout << std::format("Cache-friendly naive   (MatrixMultiplier): {:>7}\n", to_ms(time(MatrixMultiplier::naive_cache_friendly_mutliplier, N, M, P)));
+    std::cout << std::format("Cache-friendly naive                     : {:>7}\n", to_ms(time(naiveCacheFriendlyMatMul,                          N, M, P)));
+    std::cout << std::format("Cache-aware-blocked    (MatrixMultiplier): {:>7}\n", to_ms(time(MatrixMultiplier::cache_aware_blocked_multiplier,  N, M, P)));
+    std::cout << std::format("Cache-aware-blocked                      : {:>7}\n", to_ms(time(cacheFriendlyBlockMatMul,                          N, M, P)));
+    std::cout << std::format("Recursive until size 4 (MatrixMultiplier): {:>7}\n", to_ms(time(recursive_until_size(4),                           N, M, P)));
+    std::cout << std::format("Recursive until size 8 (MatrixMultiplier): {:>7}\n", to_ms(time(recursive_until_size(8),                           N, M, P)));
+    std::cout << std::format("Recursive until size 16(MatrixMultiplier): {:>7}\n", to_ms(time(recursive_until_size(16),                          N, M, P)));
+    std::cout << std::format("Recursive until size 32(MatrixMultiplier): {:>7}\n", to_ms(time(recursive_until_size(32),                          N, M, P)));
+    std::cout << std::format("Recursive until size 64(MatrixMultiplier): {:>7}\n", to_ms(time(recursive_until_size(64),                          N, M, P)));
     if (N == M && M == P && (N & N - 1) == 0)
     {
     
-    std::cout << std::format("Strassen until size 4  (MatrixMultiplier): {:<8}\n", time(strassen_until_size(4),                            N, M, P));
-    std::cout << std::format("Strassen until size 8  (MatrixMultiplier): {:<8}\n", time(strassen_until_size(8),                            N, M, P));
-    std::cout << std::format("Strassen until size 16 (MatrixMultiplier): {:<8}\n", time(strassen_until_size(16),                           N, M, P));
-    std::cout << std::format("Strassen until size 32 (MatrixMultiplier): {:<8}\n", time(strassen_until_size(32),                           N, M, P));
-    std::cout << std::format("Strassen until size 64 (MatrixMultiplier): {:<8}\n", time(strassen_until_size(64),                           N, M, P));     
+    std::cout << std::format("Strassen until size 4  (MatrixMultiplier): {:>7}\n", to_ms(time(strassen_until_size(4),                            N, M, P)));
+    std::cout << std::format("Strassen until size 8  (MatrixMultiplier): {:>7}\n", to_ms(time(strassen_until_size(8),                            N, M, P)));
+    std::cout << std::format("Strassen until size 16 (MatrixMultiplier): {:>7}\n", to_ms(time(strassen_until_size(16),                           N, M, P)));
+    std::cout << std::format("Strassen until size 32 (MatrixMultiplier): {:>7}\n", to_ms(time(strassen_until_size(32),                           N, M, P)));
+    std::cout << std::format("Strassen until size 64 (MatrixMultiplier): {:>7}\n", to_ms(time(strassen_until_size(64),                           N, M, P))); 
 
     }
-    std::cout << std::format("Hybrid                 (MatrixMultiplier): {:<8}\n", time(MatrixMultiplier::hybrid_multiplier(N, M, P),      N, M, P));
+    std::cout << std::format("Hybrid                 (MatrixMultiplier): {:>7}\n", to_ms(time(MatrixMultiplier::hybrid_multiplier(N, M, P),      N, M, P)));
 
     return 0;
 }
