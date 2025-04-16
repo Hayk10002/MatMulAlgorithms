@@ -85,7 +85,66 @@ public:
 
         return *this;
     }
+    friend class std::hash<MatrixView>;
+    bool same_view(const MatrixView& other) const
+    {
+        return row_size == other.row_size &&
+               data.data() == other.data.data() &&
+               row_start == other.row_start &&
+               row_end == other.row_end &&
+               col_start == other.col_start &&
+               col_end == other.col_end;
+    }
 };
+
+namespace std
+{
+    template<>
+    struct hash<MatrixView>
+    {
+        std::size_t operator()(const MatrixView& mv) const
+        {
+            std::size_t h = 0;
+
+            auto hash_combine = [&h](auto const& value)
+            {
+                h ^= std::hash<std::remove_cvref_t<decltype(value)>>{}(value) + 0x9e3779b9 + (h << 6) + (h >> 2);
+            };
+
+            hash_combine(mv.row_size);
+            hash_combine(reinterpret_cast<std::uintptr_t>(mv.data.data()));
+            hash_combine(mv.row_start);
+            hash_combine(mv.row_end);
+            hash_combine(mv.col_start);
+            hash_combine(mv.col_end);
+
+            return h;
+        }
+    };
+
+    template<>
+    struct hash<std::tuple<MatrixView, MatrixView, MatrixView>>
+    {
+        std::size_t operator()(const std::tuple<MatrixView, MatrixView, MatrixView>& tup) const
+        {
+            std::size_t seed = 0;
+
+            auto hash_combine = [&seed](const auto& value)
+            {
+                using T = std::remove_cvref_t<decltype(value)>;
+                seed ^= std::hash<T>{}(value) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+            };
+
+            hash_combine(std::get<0>(tup));
+            hash_combine(std::get<1>(tup));
+            hash_combine(std::get<2>(tup));
+
+            return seed;
+        }
+    };
+
+
+}
 
 void add(MatrixView A, MatrixView B, MatrixView C) // C = A + B
 {
