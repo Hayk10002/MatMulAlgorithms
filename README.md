@@ -4,11 +4,12 @@
 - [Introduction](#introduction)
 - [Build and Run](#build-and-run)
 - [Possible Output](#possible-output)
+- [What is done](#what-is-done)
 - [Benchmarked algorithms](#benchmarked-algorithms)
 - [Benchmark results](#benchmark-results)
 
 ## Introduction
-Here are implemented several sequential algorithms for multiplying two matrices. Algorithms like naive looping, looping in right order to be cache-friendly, dividing into blocks in cache-aware manner, divide and conquer recursive and Strassen's algorithms which are cache-oblivious, and a hybrid algorithm, that uses different algorithms based on the sizes of matrices. 
+Here are implemented several sequential and one multithreaded algorithms for multiplying two matrices. Algorithms like naive looping, looping in right order to be cache-friendly, dividing into blocks in cache-aware manner, divide and conquer recursive and Strassen's algorithms which are cache-oblivious, and a hybrid algorithm, and a multithreaded algorithm each thread using the hybrid algorithm, that uses different algorithms based on the sizes of matrices. 
 
 ## Build and Run
 To clone and run this project, you'll need [Git](https://git-scm.com) and [CMake](https://cmake.org/) installed on your computer. From your command line:
@@ -36,24 +37,29 @@ $ your/path/to/exe/main.exe {A_row_count} {A_col_count} {B_col_count} # other di
 (for inputs 1024 1024 1024)
 
 ```
-Naive                  (MatrixMultiplier):  2680ms
-Naive                                    :  2742ms
-Cache-friendly naive   (MatrixMultiplier):   214ms
-Cache-friendly naive                     :   223ms
-Cache-aware-blocked    (MatrixMultiplier):   284ms
-Cache-aware-blocked                      :   392ms
-Recursive until size 4 (MatrixMultiplier):   214ms
-Recursive until size 8 (MatrixMultiplier):   221ms
-Recursive until size 16(MatrixMultiplier):   219ms
-Recursive until size 32(MatrixMultiplier):   229ms
-Recursive until size 64(MatrixMultiplier):   232ms
-Strassen until size 4  (MatrixMultiplier):   285ms
-Strassen until size 8  (MatrixMultiplier):   309ms
-Strassen until size 16 (MatrixMultiplier):   234ms
-Strassen until size 32 (MatrixMultiplier):   220ms
-Strassen until size 64 (MatrixMultiplier):   213ms
-Hybrid                 (MatrixMultiplier):   172ms
+Naive                  (MatrixMultiplier): OWT:  2933ms  true, ADD:  2676ms  true
+Naive                                    : OWT:  2615ms  true, ADD:  2604ms  true
+Cache-friendly naive   (MatrixMultiplier): OWT:   222ms  true, ADD:   227ms  true
+Cache-friendly naive                     : OWT:   227ms  true, ADD:   223ms  true
+Cache-aware-blocked    (MatrixMultiplier): OWT:   306ms  true, ADD:   303ms  true
+Cache-aware-blocked                      : OWT:   344ms  true, ADD:   355ms  true
+Recursive until size 4 (MatrixMultiplier): OWT:   248ms  true, ADD:   250ms  true
+Recursive until size 8 (MatrixMultiplier): OWT:   255ms  true, ADD:   235ms  true
+Recursive until size 16(MatrixMultiplier): OWT:   221ms  true, ADD:   241ms  true
+Recursive until size 32(MatrixMultiplier): OWT:   234ms  true, ADD:   254ms  true
+Recursive until size 64(MatrixMultiplier): OWT:   323ms  true, ADD:   294ms  true
+Strassen until size 4  (MatrixMultiplier): OWT:   246ms  true, ADD:   228ms  true
+Strassen until size 8  (MatrixMultiplier): OWT:   278ms  true, ADD:   291ms  true
+Strassen until size 16 (MatrixMultiplier): OWT:   231ms  true, ADD:   238ms  true
+Strassen until size 32 (MatrixMultiplier): OWT:   242ms  true, ADD:   224ms  true
+Strassen until size 64 (MatrixMultiplier): OWT:   240ms  true, ADD:   229ms  true
+Hybrid                 (MatrixMultiplier): OWT:   199ms  true, ADD:   203ms  true
+Multithreaded hybrid   (MatrixMultiplier): OWT:   166ms  true, ADD:   189ms  true
 ```
+
+## What is done
+
+Every algorithm has two modes, one that overrides the output matrix (OWT), and one that adds the result of the multiplication to the output matrix (ADD). Each mode is benchmarked and then the result is checked with the naive cache friendly result for correctness (the output "true" indicates that the multiplication is correct).
 
 ## Benchmarked Algorithms
 
@@ -90,18 +96,18 @@ This algorithm splits the matrices into 4 smaller ones, the top left matrix size
 
 | Algorithm | 1000x1000 | 1024x1024 | 2000x2000 | 2048x2048 | 3000x3000 |
 | :-------- | :-------: | :-------: | :-------: | :-------: | :-------: |
-| Naive | 0.938s | 2.680s | (too long) | (too long) | (too long) |
-| Naive cache-friendly | 0.205s | 0.214s | 2.80s | 3.00s | 8.46s |
-| Blocked (cache-aware) | 0.254s | 0.284s | 1.99s | 2.43s | 6.84s |
-| Recursive until size 4 | 0.202s | 0.214s | 2.64s | 3.14s | 8.37s |
-| Recursive until size 8 | 0.195s | 0.221s | 2.74s | 2.89s | 8.27s |
-| Recursive until size 16 | 0.215s | 0.219s | 2.67s | 2.88s | 8.40s |
-| Recursive until size 32 | 0.215s | 0.229s | 2.68s | 2.88s | 9.10s |
-| Recursive until size 64 | 0.217s | 0.233s | 2.64s | 2.88s | 8.62s |
-| Strassen until size 4 | - | 0.285s | - | 2.88s | - |
-| Strassen until size 8 | - | 0.309s | - | 2.92s | - |
-| Strassen until size 16 | - | 0.234s | - | 2.90s | - |
-| Strassen until size 32 | - | 0.221s | - | 2.92s | - |
-| Strassen until size 64 | - | 0.213s | - | 2.89s | - |
-| Hybrid | 0.236s | 0.173s | 1.87s | 1.26s | 6.46s |
-
+| Naive                     | 0.988s | 2.615s | (too long) | (too long) | (too long) |
+| Naive cache-friendly      | 0.207s | 0.222s | 2.60s | 2.79s | 8.42s |
+| Blocked (cache-aware)     | 0.253s | 0.306s | 2.12s | 2.60s | 7.20s |
+| Recursive until size 4    | 0.208s | 0.248s | 2.65s | 2.85s | 8.61s |
+| Recursive until size 8    | 0.220s | 0.255s | 2.66s | 2.86s | 8.59s |
+| Recursive until size 16   | 0.214s | 0.221s | 2.60s | 2.81s | 9.15s |
+| Recursive until size 32   | 0.223s | 0.234s | 2.58s | 2.81s |21.91s |
+| Recursive until size 64   | 0.210s | 0.323s | 2.58s | 2.99s | 8.63s |
+| Strassen until size 4     | -      | 0.246s | -     | 2.99s | -     |
+| Strassen until size 8     | -      | 0.278s | -     | 2.84s | -     |
+| Strassen until size 16    | -      | 0.231s | -     | 3.19s | -     |
+| Strassen until size 32    | -      | 0.242s | -     | 2.92s | -     |
+| Strassen until size 64    | -      | 0.240s | -     | 2.81s | -     |
+| Hybrid                    | 0.268s | 0.199s | 1.97s | 1.32s | 6.67s |
+| Multithreaded hybrid      | 0.126s | 0.166s | 0.97s | 1.97s | 3.30s |
