@@ -3,7 +3,6 @@
 #include <vector>
 #include <cmath>
 #include <set>
-#include <string>
 #include <atomic>
 #include <thread>
 #include <mutex>
@@ -22,18 +21,18 @@ class MatrixMultiplier
         using PreconditionTypeWithSizes = std::function<bool(int, int, int)>;
         using PreconditionTypeWithViews = std::function<bool(MatrixView, MatrixView, MatrixView)>;
         using PreconditionType = std::variant<PreconditionTypeWithSizes, PreconditionTypeWithViews>;
-        using MultiplierType = std::function<void(const MatrixMultiplier&, MatrixView, MatrixView, MatrixView)>;
+        using MultiplierType = std::function<void(const MatrixMultiplier&, MatrixView, MatrixView, MatrixView, MatMulMode)>;
         PreconditionType precondition;
         MultiplierType multiplier;
 
         Multiplier(MultiplierType multiplier) : Multiplier([](int, int, int) { return true; }, multiplier) {}
         Multiplier(PreconditionType precondition, MultiplierType multiplier) : precondition(precondition), multiplier(multiplier) {}
 
-        bool can_precondition_call_with_sizes() const
+        bool can_call_precondition_with_sizes() const
         {
             return std::holds_alternative<PreconditionTypeWithSizes>(precondition);
         }
-        bool can_precondition_call_with_views() const
+        bool can_call_precondition_with_views() const
         {
             return std::holds_alternative<PreconditionTypeWithViews>(precondition);
         }
@@ -56,22 +55,24 @@ class MatrixMultiplier
     }
 
 public:
-    void naive_iterative(MatrixView A, MatrixView B, MatrixView C) const
+    void naive_iterative(MatrixView A, MatrixView B, MatrixView C, MatMulMode mode) const
     { 
+        if (mode == MatMulMode::Overwrite)
+            C.clear();
+
         int n = A.row_count(), m = A.col_count(), p = B.col_count();
         for (int i = 0; i < n; i++)
             for (int j = 0; j < p; j++)
-            {
-                C(i, j) = 0;
                 for (int k = 0; k < m; k++)
                     C(i, j) += A(i, k) * B(k, j);
-            }
     }
 
-    void naive_cache_friendly_iterative(MatrixView A, MatrixView B, MatrixView C) const
+    void naive_cache_friendly_iterative(MatrixView A, MatrixView B, MatrixView C, MatMulMode mode) const
     {
+        if (mode == MatMulMode::Overwrite)
+            C.clear();
+
         int n = A.row_count(), m = A.col_count(), p = B.col_count();
-        C.clear();
         for (int i = 0; i < n; i++)
             for (int k = 0; k < m; k++)
                 for (int j = 0; j < p; j++)
@@ -81,24 +82,29 @@ public:
     struct BlockedMultiplier
     {
         int block_size;
-        void operator()(const MatrixMultiplier& mult, MatrixView A, MatrixView B, MatrixView C)
+        void operator()(const MatrixMultiplier& mult, MatrixView A, MatrixView B, MatrixView C, MatMulMode mode)
         {
+            if (mode == MatMulMode::Overwrite)
+                C.clear();
+
             int n = A.row_count(), m = A.col_count(), p = B.col_count();
-            C.clear();
 
             for (int i = 0; i < n; i += block_size)            
                 for (int k = 0; k < m; k += block_size)                    
                     for (int j = 0; j < p; j += block_size)                
                         mult(A.getSubMatrix(i, std::min(i + block_size, n), k, std::min(k + block_size, m)),
                             B.getSubMatrix(k, std::min(k + block_size, m), j, std::min(j + block_size, p)),
-                            C.getSubMatrix(i, std::min(i + block_size, n), j, std::min(j + block_size, p)));
+                            C.getSubMatrix(i, std::min(i + block_size, n), j, std::min(j + block_size, p)), MatMulMode::Add);
         }
     };
 
-    void recursive(MatrixView A, MatrixView B, MatrixView C) const
+    void recursive(MatrixView A, MatrixView B, MatrixView C, MatMulMode mode) const
     {
         if (A.row_count() == 0 || A.col_count() == 0 || B.col_count() == 0) // Empty matrices
             return;
+
+        if (mode == MatMulMode::Overwrite)
+            C.clear();
     
         int n = A.row_count(), m = A.col_count(), p = B.col_count();
     
@@ -123,14 +129,14 @@ public:
         MatrixView C21 = C.getSubMatrix(n / 2, n    , 0    , p / 2);
         MatrixView C22 = C.getSubMatrix(n / 2, n    , p / 2, p    );
     
-        (*this)(A11, B11, C11);
-        (*this)(A12, B21, C11);
-        (*this)(A11, B12, C12);
-        (*this)(A12, B22, C12);
-        (*this)(A21, B11, C21);
-        (*this)(A22, B21, C21);
-        (*this)(A21, B12, C22);
-        (*this)(A22, B22, C22);
+        (*this)(A11, B11, C11, MatMulMode::Add);
+        (*this)(A12, B21, C11, MatMulMode::Add);
+        (*this)(A11, B12, C12, MatMulMode::Add);
+        (*this)(A12, B22, C12, MatMulMode::Add);
+        (*this)(A21, B11, C21, MatMulMode::Add);
+        (*this)(A22, B21, C21, MatMulMode::Add);
+        (*this)(A21, B12, C22, MatMulMode::Add);
+        (*this)(A22, B22, C22, MatMulMode::Add);
     }
 
     struct MultithreadedRecursiveMultiplier
@@ -141,13 +147,16 @@ public:
         inline static std::unordered_set<std::tuple<MatrixView, MatrixView, MatrixView>,
                                std::hash<std::tuple<MatrixView, MatrixView, MatrixView>>, 
                                decltype([](const auto& a, const auto& b) 
-                               { return get<0>(a).same_view(get<0>(b)) && 
-                                        get<0>(a).same_view(get<0>(b)) && 
-                                        get<0>(a).same_view(get<0>(b)); })> non_threaded_parts{};
-        static void operator()(const MatrixMultiplier& mult, MatrixView A, MatrixView B, MatrixView C)
+                               { return get<0>(a).is_same_view(get<0>(b)) && 
+                                        get<0>(a).is_same_view(get<0>(b)) && 
+                                        get<0>(a).is_same_view(get<0>(b)); })> non_threaded_parts{};
+        void operator()(const MatrixMultiplier& mult, MatrixView A, MatrixView B, MatrixView C, MatMulMode mode)
         {
             if (A.row_count() == 0 || A.col_count() == 0 || B.col_count() == 0) // Empty matrices
             return;
+
+            if (mode == MatMulMode::Overwrite)
+                C.clear();
     
             int n = A.row_count(), m = A.col_count(), p = B.col_count();
         
@@ -173,46 +182,65 @@ public:
             MatrixView C22 = C.getSubMatrix(n / 2, n    , p / 2, p    );
         
             std::vector<std::thread> threads;
+            std::vector<std::tuple<MatrixView, MatrixView, MatrixView>> parts_to_do_in_this_thread;
             threads.reserve(3);
+            parts_to_do_in_this_thread.reserve(8);
             if (thread_count < max_threads)
             {
                 thread_count++;
                 threads.push_back(std::thread([&]() 
                 { 
-                    mult(A11, B11, C11); 
-                    mult(A12, B21, C11); 
+                    mult(A11, B11, C11, MatMulMode::Add); 
+                    mult(A12, B21, C11, MatMulMode::Add); 
                 }));
+            }
+            else
+            {
+                parts_to_do_in_this_thread.push_back({A11, B11, C11});  
+                parts_to_do_in_this_thread.push_back({A12, B21, C11});
             }
             if (thread_count < max_threads)
             {
                 thread_count++;
                 threads.push_back(std::thread([&]() 
                 { 
-                    mult(A11, B12, C12);
-                    mult(A12, B22, C12);
+                    mult(A11, B12, C12, MatMulMode::Add);
+                    mult(A12, B22, C12, MatMulMode::Add);
                 }));
+            }
+            else
+            {
+                parts_to_do_in_this_thread.push_back({A11, B12, C12});
+                parts_to_do_in_this_thread.push_back({A12, B22, C12});
             }
             if (thread_count < max_threads)
             {
                 thread_count++;
                 threads.push_back(std::thread([&]() 
                 { 
-                    mult(A21, B11, C21); 
-                    mult(A22, B21, C21); 
+                    mult(A21, B11, C21, MatMulMode::Add); 
+                    mult(A22, B21, C21, MatMulMode::Add); 
                 }));
             }
+            else
+            {
+                parts_to_do_in_this_thread.push_back({A21, B11, C21});
+                parts_to_do_in_this_thread.push_back({A22, B21, C21});
+            }
+            parts_to_do_in_this_thread.push_back({A21, B12, C22});
+            parts_to_do_in_this_thread.push_back({A22, B22, C22});
 
             non_threaded_parts_mutex.lock();
-            non_threaded_parts.insert({A21, B12, C22});
-            non_threaded_parts.insert({A22, B22, C22});
+            for (const auto& part : parts_to_do_in_this_thread) 
+                non_threaded_parts.insert(part);
             non_threaded_parts_mutex.unlock();
 
-            mult(A21, B12, C22);
-            mult(A22, B22, C22);
+            for (const auto& part : parts_to_do_in_this_thread) 
+                mult(std::get<0>(part), std::get<1>(part), std::get<2>(part), MatMulMode::Add);
 
             non_threaded_parts_mutex.lock();
-            non_threaded_parts.erase({A21, B12, C22});
-            non_threaded_parts.erase({A22, B22, C22});
+            for (const auto& part : parts_to_do_in_this_thread) 
+                non_threaded_parts.erase(part);
             non_threaded_parts_mutex.unlock();
 
             for (auto& thread : threads)
@@ -231,14 +259,24 @@ public:
         }
     };
 
-    void strassen(MatrixView A, MatrixView B, MatrixView C) const
+    void strassen(MatrixView A, MatrixView B, MatrixView C, MatMulMode mode) const
     {   
         int s = A.row_count();
 
         if (s == 1)
         {
-            C(0, 0) = A(0, 0) * B(0, 0);
+            if (mode == MatMulMode::Overwrite) C(0, 0)  = A(0, 0) * B(0, 0);
+            else                               C(0, 0) += A(0, 0) * B(0, 0);
             return;
+        }
+
+        std::vector<int> D_vec;
+        MatrixView D;
+        if (mode == MatMulMode::Add)
+        {
+            D_vec.resize(s * s);
+            D = MatrixView(D_vec, s);
+            std::swap(C, D);
         }
 
         std::vector<int> buffer(5 * s * s / 4);
@@ -266,29 +304,31 @@ public:
 
         add(A11, A22, x);
         add(B11, B22, y);
-        (*this)(x, y, u);
+        (*this)(x, y, u, MatMulMode::Overwrite);
         add(A21, A22, x);
-        (*this)(x, B11, C21);
+        (*this)(x, B11, C21, MatMulMode::Overwrite);
         sub(B12, B22, x);
-        (*this)(A11, x, C12);
+        (*this)(A11, x, C12, MatMulMode::Overwrite);
         sub(B21, B11, x);
-        (*this)(A22, x, v);
+        (*this)(A22, x, v, MatMulMode::Overwrite);
         add(A11, A12, x);
-        (*this)(x, B22, w);
+        (*this)(x, B22, w, MatMulMode::Overwrite);
         sub(A21, A11, x);
         add(B11, B12, y);
-        (*this)(x, y, C22);
+        (*this)(x, y, C22, MatMulMode::Overwrite);
         sub(A12, A22, x);
         add(B21, B22, y);
-        (*this)(x, y, C11);
-        C11 += u;
-        C11 += v;
-        C11 -= w;
-        C22 += u;
-        C22 += C12;
-        C22 -= C21;
-        C12 += w;
-        C21 += v;
+        (*this)(x, y, C11, MatMulMode::Overwrite);
+        C11.add_eq(u);
+        C11.add_eq(v);
+        C11.rem_eq(w);
+        C22.add_eq(u);
+        C22.add_eq(C12);
+        C22.rem_eq(C21);
+        C12.add_eq(w);
+        C21.add_eq(v);
+
+        if (mode == MatMulMode::Add) D.add_eq(C);
     }
 
     static MatrixMultiplier one_strategy(Multiplier::MultiplierType multiplier)
@@ -351,14 +391,14 @@ public:
         return possibly_multithreaded(hybrid_multiplier(N, M, P));
     }
 
-    void operator()(MatrixView A, MatrixView B, MatrixView C) const
+    void operator()(MatrixView A, MatrixView B, MatrixView C, MatMulMode mode) const
     {
         for (auto& multiplier : multipliers)
             if (valid_for_multiplying(A, B, C) &&
-                ((multiplier.can_precondition_call_with_sizes() && multiplier.precondition_with_sizes(A.row_count(), A.col_count(), B.col_count())) ||
-                 (multiplier.can_precondition_call_with_views() && multiplier.precondition_with_views(A, B, C))))
+                ((multiplier.can_call_precondition_with_sizes() && multiplier.precondition_with_sizes(A.row_count(), A.col_count(), B.col_count())) ||
+                 (multiplier.can_call_precondition_with_views() && multiplier.precondition_with_views(A, B, C))))
             {
-                multiplier.multiplier(*this, A, B, C);
+                multiplier.multiplier(*this, A, B, C, mode);
                 return;
             }
     }

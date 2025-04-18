@@ -26,29 +26,41 @@ auto time(F f, int N, int M, int P)
 {
     std::vector<int> A(N * M);
     std::vector<int> B(M * P);
-    std::vector<int> C(N * P, 0);
+    std::vector<int> C(N * P);
 
-    std::vector<int> D(N * P, 0);
+    std::vector<int> E(N * P, 0);
 
     std::generate(A.begin(), A.end(), [](){ return generateRandomNumber(); });
     std::generate(B.begin(), B.end(), [](){ return generateRandomNumber(); });
-    //std::generate(C.begin(), C.end(), [](){ return generateRandomNumber(); });
+    std::generate(C.begin(), C.end(), [](){ return generateRandomNumber(); });
 
     MatrixView A_view(A, M);
     MatrixView B_view(B, P);
     MatrixView C_view(C, P);
 
-    MatrixView D_view(D, P);
+    MatrixView E_view(E, P);
+    naiveCacheFriendlyMatMul(A_view, B_view, E_view, MatMulMode::Add);
 
     auto start = std::chrono::high_resolution_clock::now();
 
-    f(A_view, B_view, C_view);
+    f(A_view, B_view, C_view, MatMulMode::Overwrite);
 
-    auto t = std::chrono::high_resolution_clock::now() - start;
+    auto t_overwrite = std::chrono::high_resolution_clock::now() - start;
+    bool overwrite_check = C == E;
 
-    naiveCacheFriendlyMatMul(A_view, B_view, D_view);
+    std::ranges::for_each(E, [](int& x){ x *= 2; });
 
-    return std::pair{ t, C == D };
+    start = std::chrono::high_resolution_clock::now();
+
+    f(A_view, B_view, C_view, MatMulMode::Add);
+
+    auto t_add = std::chrono::high_resolution_clock::now() - start;
+    bool add_check = C == E;
+
+    return std::pair{ 
+        std::pair{ t_overwrite, overwrite_check }, 
+        std::pair{ t_add, add_check} 
+    };
 }
 
 MatrixMultiplier recursive_until_size(int size)
@@ -61,9 +73,16 @@ MatrixMultiplier strassen_until_size(int size)
     return MatrixMultiplier::strassen_then([size](int n, int m, int p){ return n < size || m < size || p < size; }, MatrixMultiplier::naive_cache_friendly_mutliplier);
 }
 
+template<class F>
+void print_test(std::string_view name, F f, int N, int M, int P)
+{
+    static auto to_ms = [](auto t){ return std::chrono::duration_cast<std::chrono::milliseconds>(t); };
+    auto res = time(f, N, M, P);
+    std::cout << std::format("{}: OWT: {:>7} {:>5}, ADD: {:>7} {:>5}\n", name, to_ms(res.first.first), res.first.second, to_ms(res.second.first), res.second.second);
+}
+
 int main(int argc, char* argv[])
 {
-    auto to_ms = [](auto t){ return std::chrono::duration_cast<std::chrono::milliseconds>(t); };
     if (argc != 4)
     {
         std::cerr << "Usage: " << argv[0] << " <A_row_count> <A_col_count> <B_col_count>.";
@@ -76,36 +95,35 @@ int main(int argc, char* argv[])
     int M = std::stoi(argv[2]);
     int P = std::stoi(argv[3]);
 
-    std::pair<std::chrono::high_resolution_clock::duration, bool> res;
-
+    
     if (N <= 1024 && M <= 1024 && P <= 1024)
     {
 
-    std::cout << std::format("Naive                  (MatrixMultiplier): {:>7}, {}\n", to_ms((res = time(MatrixMultiplier::naive_iterative_mutliplier,               N, M, P)).first), res.second);
-    std::cout << std::format("Naive                                    : {:>7}, {}\n", to_ms((res = time(naiveMatMul,                                                N, M, P)).first), res.second);
+    print_test("Naive                  (MatrixMultiplier)", MatrixMultiplier::naive_iterative_mutliplier              , N, M, P);
+    print_test("Naive                                    ", naiveMatMul                                               , N, M, P);
     
     }
-    std::cout << std::format("Cache-friendly naive   (MatrixMultiplier): {:>7}, {}\n", to_ms((res = time(MatrixMultiplier::naive_cache_friendly_mutliplier,          N, M, P)).first), res.second);
-    std::cout << std::format("Cache-friendly naive                     : {:>7}, {}\n", to_ms((res = time(naiveCacheFriendlyMatMul,                                   N, M, P)).first), res.second);
-    std::cout << std::format("Cache-aware-blocked    (MatrixMultiplier): {:>7}, {}\n", to_ms((res = time(MatrixMultiplier::cache_aware_blocked_multiplier,           N, M, P)).first), res.second);
-    std::cout << std::format("Cache-aware-blocked                      : {:>7}, {}\n", to_ms((res = time(cacheFriendlyBlockMatMul,                                   N, M, P)).first), res.second);
-    std::cout << std::format("Recursive until size 4 (MatrixMultiplier): {:>7}, {}\n", to_ms((res = time(recursive_until_size(4),                                    N, M, P)).first), res.second);
-    std::cout << std::format("Recursive until size 8 (MatrixMultiplier): {:>7}, {}\n", to_ms((res = time(recursive_until_size(8),                                    N, M, P)).first), res.second);
-    std::cout << std::format("Recursive until size 16(MatrixMultiplier): {:>7}, {}\n", to_ms((res = time(recursive_until_size(16),                                   N, M, P)).first), res.second);
-    std::cout << std::format("Recursive until size 32(MatrixMultiplier): {:>7}, {}\n", to_ms((res = time(recursive_until_size(32),                                   N, M, P)).first), res.second);
-    std::cout << std::format("Recursive until size 64(MatrixMultiplier): {:>7}, {}\n", to_ms((res = time(recursive_until_size(64),                                   N, M, P)).first), res.second);
+    print_test("Cache-friendly naive   (MatrixMultiplier)", MatrixMultiplier::naive_cache_friendly_mutliplier         , N, M, P);
+    print_test("Cache-friendly naive                     ", naiveCacheFriendlyMatMul                                  , N, M, P);
+    print_test("Cache-aware-blocked    (MatrixMultiplier)", MatrixMultiplier::cache_aware_blocked_multiplier          , N, M, P);
+    print_test("Cache-aware-blocked                      ", cacheFriendlyBlockMatMul                                  , N, M, P);
+    print_test("Recursive until size 4 (MatrixMultiplier)", recursive_until_size(4)                                   , N, M, P);
+    print_test("Recursive until size 8 (MatrixMultiplier)", recursive_until_size(8)                                   , N, M, P);
+    print_test("Recursive until size 16(MatrixMultiplier)", recursive_until_size(16)                                  , N, M, P);
+    print_test("Recursive until size 32(MatrixMultiplier)", recursive_until_size(32)                                  , N, M, P);
+    print_test("Recursive until size 64(MatrixMultiplier)", recursive_until_size(64)                                  , N, M, P);
     if (N == M && M == P && (N & N - 1) == 0)
     {
     
-    std::cout << std::format("Strassen until size 4  (MatrixMultiplier): {:>7}, {}\n", to_ms((res = time(strassen_until_size(4),                                     N, M, P)).first), res.second);
-    std::cout << std::format("Strassen until size 8  (MatrixMultiplier): {:>7}, {}\n", to_ms((res = time(strassen_until_size(8),                                     N, M, P)).first), res.second);
-    std::cout << std::format("Strassen until size 16 (MatrixMultiplier): {:>7}, {}\n", to_ms((res = time(strassen_until_size(16),                                    N, M, P)).first), res.second);
-    std::cout << std::format("Strassen until size 32 (MatrixMultiplier): {:>7}, {}\n", to_ms((res = time(strassen_until_size(32),                                    N, M, P)).first), res.second);
-    std::cout << std::format("Strassen until size 64 (MatrixMultiplier): {:>7}, {}\n", to_ms((res = time(strassen_until_size(64),                                    N, M, P)).first), res.second); 
+    print_test("Strassen until size 4  (MatrixMultiplier)", strassen_until_size(4)                                    , N, M, P);
+    print_test("Strassen until size 8  (MatrixMultiplier)", strassen_until_size(8)                                    , N, M, P);
+    print_test("Strassen until size 16 (MatrixMultiplier)", strassen_until_size(16)                                   , N, M, P);
+    print_test("Strassen until size 32 (MatrixMultiplier)", strassen_until_size(32)                                   , N, M, P);
+    print_test("Strassen until size 64 (MatrixMultiplier)", strassen_until_size(64)                                   , N, M, P);
 
     }
-    std::cout << std::format("Hybrid                 (MatrixMultiplier): {:>7}, {}\n", to_ms((res = time(MatrixMultiplier::hybrid_multiplier(N, M, P),               N, M, P)).first), res.second);
-    std::cout << std::format("Multithreaded hybrid   (MatrixMultiplier): {:>7}, {}\n", to_ms((res = time(MatrixMultiplier::multithreaded_hybrid_multiplier(N, M, P), N, M, P)).first), res.second);
+    print_test("Hybrid                 (MatrixMultiplier)", MatrixMultiplier::hybrid_multiplier(N, M, P)              , N, M, P);
+    print_test("Multithreaded hybrid   (MatrixMultiplier)", MatrixMultiplier::multithreaded_hybrid_multiplier(N, M, P), N, M, P);
 
     return 0;
 }

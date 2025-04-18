@@ -41,17 +41,18 @@ void recursiveMatMulImpl(MatrixView A, MatrixView B, MatrixView C)
     recursiveMatMulImpl(A22, B22, C22);
 }
 
-void recursiveMatMul(MatrixView A, MatrixView B, MatrixView C)
+void recursiveMatMul(MatrixView A, MatrixView B, MatrixView C, MatMulMode mode)
 {
-    C.clear();
-    
     if (A.col_count() != B.row_count() || B.col_count() != C.col_count() || A.row_count() != C.row_count()) // Invalid matrix dimensions
         return;
+        
+    if (mode == MatMulMode::Overwrite)
+        C.clear();
         
     recursiveMatMulImpl(A, B, C);
 }
 
-void StrassenMatMul(MatrixView A, MatrixView B, MatrixView C)
+void StrassenMatMul(MatrixView A, MatrixView B, MatrixView C, MatMulMode mode)
 {
     int s = A.row_count();
     if ((s & (s - 1)) != 0 ||
@@ -60,8 +61,18 @@ void StrassenMatMul(MatrixView A, MatrixView B, MatrixView C)
 
     if (s == 1)
     {
-        C(0, 0) = A(0, 0) * B(0, 0);
+        if (mode == MatMulMode::Overwrite) C(0, 0)  = A(0, 0) * B(0, 0);
+        else                               C(0, 0) += A(0, 0) * B(0, 0);
         return;
+    }
+
+    std::vector<int> D_vec;
+    MatrixView D;
+    if (mode == MatMulMode::Add)
+    {
+        D_vec.resize(s * s);
+        D = MatrixView(D_vec, s);
+        std::swap(C, D);
     }
 
     static std::vector<int> buffer{};
@@ -97,29 +108,31 @@ void StrassenMatMul(MatrixView A, MatrixView B, MatrixView C)
 
     add(A11, A22, x);
     add(B11, B22, y);
-    StrassenMatMul(x, y, u);
+    StrassenMatMul(x, y, u, MatMulMode::Overwrite);
     add(A21, A22, x);
-    StrassenMatMul(x, B11, C21);
+    StrassenMatMul(x, B11, C21, MatMulMode::Overwrite);
     sub(B12, B22, x);
-    StrassenMatMul(A11, x, C12);
+    StrassenMatMul(A11, x, C12, MatMulMode::Overwrite);
     sub(B21, B11, x);
-    StrassenMatMul(A22, x, v);
+    StrassenMatMul(A22, x, v, MatMulMode::Overwrite);
     add(A11, A12, x);
-    StrassenMatMul(x, B22, w);
+    StrassenMatMul(x, B22, w, MatMulMode::Overwrite);
     sub(A21, A11, x);
     add(B11, B12, y);
-    StrassenMatMul(x, y, C22);
+    StrassenMatMul(x, y, C22, MatMulMode::Overwrite);
     sub(A12, A22, x);
     add(B21, B22, y);
-    StrassenMatMul(x, y, C11);
-    C11 += u;
-    C11 += v;
-    C11 -= w;
-    C22 += u;
-    C22 += C12;
-    C22 -= C21;
-    C12 += w;
-    C21 += v;
+    StrassenMatMul(x, y, C11, MatMulMode::Overwrite);
+    C11.add_eq(u);
+    C11.add_eq(v);
+    C11.rem_eq(w);
+    C22.add_eq(u);
+    C22.add_eq(C12);
+    C22.rem_eq(C21);
+    C12.add_eq(w);
+    C21.add_eq(v);
 
     current_buffer_start -= 5 * s * s / 4;
+
+    if (mode == MatMulMode::Add) D.add_eq(C);
 }

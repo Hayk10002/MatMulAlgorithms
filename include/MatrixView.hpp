@@ -13,13 +13,14 @@ private:
     int col_end;
     
 public:
+    MatrixView() = default;
     MatrixView(std::span<int> data, int row_size, int row_start, int row_end, int col_start, int col_end)
         : data(data), row_size(row_size), row_start(row_start), row_end(row_end), col_start(col_start), col_end(col_end)
     {
     }
 
     MatrixView(std::span<int> data, int row_size): 
-        MatrixView(data, row_size, 0, data.size() / row_size, 0, row_size)
+        MatrixView(data, row_size, 0, row_size ? data.size() / row_size : 0, 0, row_size)
     {
     }
 
@@ -59,7 +60,7 @@ public:
                 (*this)(i, j) = 0;
     }
 
-    MatrixView& operator=(MatrixView O)
+    MatrixView& clone_from(MatrixView O)
     {
         for (int i = 0; i < row_count() && i < O.row_count(); i++)
             for (int j = 0; j < col_count() && i < O.col_count(); j++)
@@ -68,7 +69,7 @@ public:
         return *this;
     }
 
-    MatrixView& operator+=(MatrixView O)
+    MatrixView& add_eq(MatrixView O)
     {
         for (int i = 0; i < row_count() && i < O.row_count(); i++)
             for (int j = 0; j < col_count() && i < O.col_count(); j++)
@@ -77,7 +78,7 @@ public:
         return *this;
     }
 
-    MatrixView& operator-=(MatrixView O)
+    MatrixView& rem_eq(MatrixView O)
     {
         for (int i = 0; i < row_count() && i < O.row_count(); i++)
             for (int j = 0; j < col_count() && i < O.col_count(); j++)
@@ -85,8 +86,19 @@ public:
 
         return *this;
     }
-    friend class std::hash<MatrixView>;
-    bool same_view(const MatrixView& other) const
+
+    bool is_equal(const MatrixView& other) const
+    {
+        if (row_count() != other.row_count() || col_count() != other.col_count())
+            return false;
+        for (int i = 0; i < row_count(); i++)
+            for (int j = 0; j < col_count(); j++)
+                if ((*this)(i, j) != other(i, j))
+                    return false;
+        return true;
+    }
+
+    bool is_same_view(const MatrixView& other) const
     {
         return row_size == other.row_size &&
                data.data() == other.data.data() &&
@@ -95,6 +107,8 @@ public:
                col_start == other.col_start &&
                col_end == other.col_end;
     }
+
+    friend class std::hash<MatrixView>;
 };
 
 namespace std
@@ -142,8 +156,6 @@ namespace std
             return seed;
         }
     };
-
-
 }
 
 void add(MatrixView A, MatrixView B, MatrixView C) // C = A + B
@@ -163,3 +175,9 @@ void sub(MatrixView A, MatrixView B, MatrixView C) // C = A - B
             for (int j = 0; j < col_count; j++)
                 C(i, j) = A(i, j) - B(i, j);
 }
+
+enum class MatMulMode
+{
+    Overwrite, // C  = A * B
+    Add        // C += A * B
+};
