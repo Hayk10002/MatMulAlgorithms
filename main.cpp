@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <functional>
 #include <random>
+#include <map>
 
 #include "include/MatrixView.hpp"
 #include "include/iterative.hpp"
@@ -24,22 +25,42 @@ int generateRandomNumber(int min = 0, int max = 100) {
 template<class F>
 auto time(F f, int N, int M, int P)
 {
-    std::vector<int> A(N * M);
-    std::vector<int> B(M * P);
-    std::vector<int> C(N * P);
+    static std::map<std::array<int, 3>, std::array<std::vector<int>, 4>> cache{};
+    auto it = cache.find({N, M, P});
+    if (it == cache.end())
+    {
+        std::vector<int> A(N * M);
+        std::vector<int> B(M * P);
+        std::vector<int> C(N * P);
 
-    std::vector<int> E(N * P, 0);
+        std::vector<int> E(N * P);
 
-    std::generate(A.begin(), A.end(), [](){ return generateRandomNumber(); });
-    std::generate(B.begin(), B.end(), [](){ return generateRandomNumber(); });
-    std::generate(C.begin(), C.end(), [](){ return generateRandomNumber(); });
+        std::generate(A.begin(), A.end(), [](){ return generateRandomNumber(); });
+        std::generate(B.begin(), B.end(), [](){ return generateRandomNumber(); });
+        std::generate(C.begin(), C.end(), [](){ return generateRandomNumber(); });
+
+        MatrixView A_view(A, M);
+        MatrixView B_view(B, P);
+        MatrixView C_view(C, P);
+
+        MatrixView E_view(E, P);
+
+        naiveCacheFriendlyMatMul(A_view, B_view, E_view, MatMulMode::Add);
+
+        cache[{N, M, P}] = {std::move(A), std::move(B), std::move(C), std::move(E)};
+        it = cache.find({N, M, P});
+    }
+
+    std::vector<int>& A = it->second[0];
+    std::vector<int>& B = it->second[1];
+    std::vector<int>& C = it->second[2];
+    std::vector<int>& E = it->second[3];
 
     MatrixView A_view(A, M);
     MatrixView B_view(B, P);
     MatrixView C_view(C, P);
 
     MatrixView E_view(E, P);
-    naiveCacheFriendlyMatMul(A_view, B_view, E_view, MatMulMode::Add);
 
     auto start = std::chrono::high_resolution_clock::now();
 
@@ -56,6 +77,8 @@ auto time(F f, int N, int M, int P)
 
     auto t_add = std::chrono::high_resolution_clock::now() - start;
     bool add_check = C == E;
+
+    std::ranges::for_each(E, [](int& x){ x /= 2; });
 
     return std::pair{ 
         std::pair{ t_overwrite, overwrite_check }, 

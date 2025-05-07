@@ -144,12 +144,12 @@ public:
         inline static std::atomic<int> thread_count{0};
         inline static const int max_threads = std::thread::hardware_concurrency() - 1;
         inline static std::mutex non_threaded_parts_mutex;
-        inline static std::unordered_set<std::tuple<MatrixView, MatrixView, MatrixView>,
-                               std::hash<std::tuple<MatrixView, MatrixView, MatrixView>>, 
+        inline static std::unordered_set<std::array<MatrixView, 3>,
+                               std::hash<std::array<MatrixView, 3>>, 
                                decltype([](const auto& a, const auto& b) 
-                               { return get<0>(a).is_same_view(get<0>(b)) && 
-                                        get<0>(a).is_same_view(get<0>(b)) && 
-                                        get<0>(a).is_same_view(get<0>(b)); })> non_threaded_parts{};
+                               { return a[0].is_same_view(b[0]) && 
+                                        a[1].is_same_view(b[1]) && 
+                                        a[2].is_same_view(b[2]); })> non_threaded_parts{};
         void operator()(const MatrixMultiplier& mult, MatrixView A, MatrixView B, MatrixView C, MatMulMode mode)
         {
             if (A.row_count() == 0 || A.col_count() == 0 || B.col_count() == 0) // Empty matrices
@@ -182,7 +182,7 @@ public:
             MatrixView C22 = C.getSubMatrix(n / 2, n    , p / 2, p    );
         
             std::vector<std::thread> threads;
-            std::vector<std::tuple<MatrixView, MatrixView, MatrixView>> parts_to_do_in_this_thread;
+            std::vector<std::array<MatrixView, 3>> parts_to_do_in_this_thread;
             threads.reserve(3);
             parts_to_do_in_this_thread.reserve(8);
             if (thread_count < max_threads)
@@ -236,7 +236,7 @@ public:
             non_threaded_parts_mutex.unlock();
 
             for (const auto& part : parts_to_do_in_this_thread) 
-                mult(std::get<0>(part), std::get<1>(part), std::get<2>(part), MatMulMode::Add);
+                mult(part[0], part[1], part[2], MatMulMode::Add);
 
             non_threaded_parts_mutex.lock();
             for (const auto& part : parts_to_do_in_this_thread) 

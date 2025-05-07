@@ -137,9 +137,9 @@ namespace std
     };
 
     template<>
-    struct hash<std::tuple<MatrixView, MatrixView, MatrixView>>
+    struct hash<std::array<MatrixView, 3>>
     {
-        std::size_t operator()(const std::tuple<MatrixView, MatrixView, MatrixView>& tup) const
+        std::size_t operator()(const std::array<MatrixView, 3>& arr) const
         {
             std::size_t seed = 0;
 
@@ -149,9 +149,9 @@ namespace std
                 seed ^= std::hash<T>{}(value) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
             };
 
-            hash_combine(std::get<0>(tup));
-            hash_combine(std::get<1>(tup));
-            hash_combine(std::get<2>(tup));
+            hash_combine(arr[0]);
+            hash_combine(arr[1]);
+            hash_combine(arr[2]);
 
             return seed;
         }
