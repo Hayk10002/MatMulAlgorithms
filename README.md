@@ -27,34 +27,32 @@ $ cmake -DCMAKE_BUILD_TYPE=Release -S . -B build
 # Build the project
 $ cmake --build build --config Release
 
-# Then, run the executable generated in the `build` directory with the appropriate sizes to run the test.
-$ your/path/to/exe/main.exe {A_row_count} {A_col_count} {B_col_count} # other dimensions are calculated based on the requirements for the matrix multiplication.
-# example - .../main.exe 1000 500 800
-# this multiplies two matrices of size 1000x500, 500x800, to get a matrix of size 1000x800.
+# Then, run the executable generated in the `build` directory.
+$ your/path/to/exe/main.exe --help
+# This will provide help to properly run the command
 ```
 
 ## Possible Output
-(for inputs 1024 1024 1024)
+(for --mult all --sizes 1024_1024_1024 --verify)
 
 ```
-Naive                  (MatrixMultiplier): OWT:  2933ms  true, ADD:  2676ms  true
-Naive                                    : OWT:  2615ms  true, ADD:  2604ms  true
-Cache-friendly naive   (MatrixMultiplier): OWT:   222ms  true, ADD:   227ms  true
-Cache-friendly naive                     : OWT:   227ms  true, ADD:   223ms  true
-Cache-aware-blocked    (MatrixMultiplier): OWT:   306ms  true, ADD:   303ms  true
-Cache-aware-blocked                      : OWT:   344ms  true, ADD:   355ms  true
-Recursive until size 4 (MatrixMultiplier): OWT:   248ms  true, ADD:   250ms  true
-Recursive until size 8 (MatrixMultiplier): OWT:   255ms  true, ADD:   235ms  true
-Recursive until size 16(MatrixMultiplier): OWT:   221ms  true, ADD:   241ms  true
-Recursive until size 32(MatrixMultiplier): OWT:   234ms  true, ADD:   254ms  true
-Recursive until size 64(MatrixMultiplier): OWT:   323ms  true, ADD:   294ms  true
-Strassen until size 4  (MatrixMultiplier): OWT:   246ms  true, ADD:   228ms  true
-Strassen until size 8  (MatrixMultiplier): OWT:   278ms  true, ADD:   291ms  true
-Strassen until size 16 (MatrixMultiplier): OWT:   231ms  true, ADD:   238ms  true
-Strassen until size 32 (MatrixMultiplier): OWT:   242ms  true, ADD:   224ms  true
-Strassen until size 64 (MatrixMultiplier): OWT:   240ms  true, ADD:   229ms  true
-Hybrid                 (MatrixMultiplier): OWT:   199ms  true, ADD:   203ms  true
-Multithreaded hybrid   (MatrixMultiplier): OWT:   166ms  true, ADD:   189ms  true
+N: 1024, M: 1024, P: 1024
+Naive                                  : OWT:  2734ms, ADD:  2566ms
+Naive                (MatrixMultiplier): OWT:  2175ms, ADD:  2164ms
+Cache-friendly naive                   : OWT:   216ms, ADD:   212ms
+Cache-friendly naive (MatrixMultiplier): OWT:   217ms, ADD:   214ms
+Cache-aware-blocked                    : OWT:   332ms, ADD:   327ms
+Cache-aware-blocked  (MatrixMultiplier): OWT:   341ms, ADD:   348ms
+Recursive until size 16                : OWT:   231ms, ADD:   227ms
+Recursive until size 32                : OWT:   228ms, ADD:   243ms
+Recursive until size 64                : OWT:   231ms, ADD:   240ms
+Recursive until size 128               : OWT:   220ms, ADD:   218ms
+Strassen  until size 16                : OWT:   221ms, ADD:   216ms
+Strassen  until size 32                : OWT:   238ms, ADD:   220ms
+Strassen  until size 64                : OWT:   225ms, ADD:   219ms
+Strassen  until size 128               : OWT:   236ms, ADD:   224ms
+Hybrid               (MatrixMultiplier): OWT:   193ms, ADD:   189ms
+Multithreaded hybrid (MatrixMultiplier): OWT:   155ms, ADD:   145ms
 ```
 
 ## What is done

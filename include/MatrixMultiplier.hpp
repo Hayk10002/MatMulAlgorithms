@@ -387,7 +387,6 @@ public:
 
     static MatrixMultiplier multithreaded_hybrid_multiplier(int N, int M, int P)
     {
-        int max_power_of_2_less_than_NMP = 1 << (int)log2(std::min({N, M, P}));
         return possibly_multithreaded(hybrid_multiplier(N, M, P));
     }
 
