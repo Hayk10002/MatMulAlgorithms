@@ -9,7 +9,7 @@
 - [Benchmark results](#benchmark-results)
 
 ## Introduction
-Here are implemented several sequential and one multithreaded algorithms for multiplying two matrices. Algorithms like naive looping, looping in right order to be cache-friendly, dividing into blocks in cache-aware manner, divide and conquer recursive and Strassen's algorithms which are cache-oblivious, and a hybrid algorithm, and a multithreaded algorithm each thread using the hybrid algorithm, that uses different algorithms based on the sizes of matrices. 
+Here are implemented several sequential and one multithreaded algorithms for multiplying two matrices. Algorithms like naive looping, looping in right order to be cache-friendly, dividing into blocks in cache-aware manner, divide and conquer recursive and Strassen's algorithms which are cache-oblivious, and a hybrid algorithmthat uses different algorithms based on the sizes of matrices, and a multithreaded algorithm each thread using the hybrid algorithm.
 
 ## Build and Run
 To clone and run this project, you'll need [Git](https://git-scm.com) and [CMake](https://cmake.org/) installed on your computer. From your command line:
@@ -89,6 +89,11 @@ This algorithm like the recursive one, also becomes very inefficient if used to 
 ### Hybrid approach
 
 This algorithm splits the matrices into 4 smaller ones, the top left matrix size is picked to be the highest power of two smaller than the dimenstions of the matrices. The top left matrices are multiplied using Strassen's algorithm, and other multiplications are using the recursive method. Both Strassen's algorithm and recursive one stop subdividing the matrices at the moment when the whole multiplication of the submatrices can be done in the L1 cache, and then multiplies them with the cache-friendly naive method. 
+
+### Multithreaded
+
+This divides matrices into 4 and then 16 submatrices and runs the hybrid algorithm on them.
+With some profiling with Intel VTune profiler, it was determined that in average about 4-5 cores are used in parallel. This is not that good outcome, so further improvements can be done.
 
 ## Benchmark results
 

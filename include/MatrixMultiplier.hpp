@@ -5,7 +5,6 @@
 #include <set>
 #include <atomic>
 #include <thread>
-#include <mutex>
 #include <variant>
 #include <unordered_set>
 #include "MatrixView.hpp"
@@ -141,15 +140,6 @@ public:
 
     struct MultithreadedRecursiveMultiplier
     {
-        inline static std::atomic<int> thread_count{0};
-        inline static const int max_threads = std::thread::hardware_concurrency() - 1;
-        inline static std::mutex non_threaded_parts_mutex;
-        inline static std::unordered_set<std::array<MatrixView, 3>,
-                               std::hash<std::array<MatrixView, 3>>, 
-                               decltype([](const auto& a, const auto& b) 
-                               { return a[0].is_same_view(b[0]) && 
-                                        a[1].is_same_view(b[1]) && 
-                                        a[2].is_same_view(b[2]); })> non_threaded_parts{};
         void operator()(const MatrixMultiplier& mult, MatrixView A, MatrixView B, MatrixView C, MatMulMode mode)
         {
             if (A.row_count() == 0 || A.col_count() == 0 || B.col_count() == 0) // Empty matrices
@@ -184,78 +174,26 @@ public:
             std::vector<std::thread> threads;
             std::vector<std::array<MatrixView, 3>> parts_to_do_in_this_thread;
             threads.reserve(3);
-            parts_to_do_in_this_thread.reserve(8);
-            if (thread_count < max_threads)
-            {
-                thread_count++;
-                threads.push_back(std::thread([&]() 
-                { 
-                    mult(A11, B11, C11, MatMulMode::Add); 
-                    mult(A12, B21, C11, MatMulMode::Add); 
-                }));
-            }
-            else
-            {
-                parts_to_do_in_this_thread.push_back({A11, B11, C11});  
-                parts_to_do_in_this_thread.push_back({A12, B21, C11});
-            }
-            if (thread_count < max_threads)
-            {
-                thread_count++;
-                threads.push_back(std::thread([&]() 
-                { 
-                    mult(A11, B12, C12, MatMulMode::Add);
-                    mult(A12, B22, C12, MatMulMode::Add);
-                }));
-            }
-            else
-            {
-                parts_to_do_in_this_thread.push_back({A11, B12, C12});
-                parts_to_do_in_this_thread.push_back({A12, B22, C12});
-            }
-            if (thread_count < max_threads)
-            {
-                thread_count++;
-                threads.push_back(std::thread([&]() 
-                { 
-                    mult(A21, B11, C21, MatMulMode::Add); 
-                    mult(A22, B21, C21, MatMulMode::Add); 
-                }));
-            }
-            else
-            {
-                parts_to_do_in_this_thread.push_back({A21, B11, C21});
-                parts_to_do_in_this_thread.push_back({A22, B21, C21});
-            }
-            parts_to_do_in_this_thread.push_back({A21, B12, C22});
-            parts_to_do_in_this_thread.push_back({A22, B22, C22});
+            threads.push_back(std::thread([&]() 
+            { 
+                mult(A11, B11, C11, MatMulMode::Add); 
+                mult(A12, B21, C11, MatMulMode::Add); 
+            }));
+            threads.push_back(std::thread([&]() 
+            { 
+                mult(A11, B12, C12, MatMulMode::Add);
+                mult(A12, B22, C12, MatMulMode::Add);
+            }));
+            threads.push_back(std::thread([&]() 
+            { 
+                mult(A21, B11, C21, MatMulMode::Add); 
+                mult(A22, B21, C21, MatMulMode::Add); 
+            }));
 
-            non_threaded_parts_mutex.lock();
-            for (const auto& part : parts_to_do_in_this_thread) 
-                non_threaded_parts.insert(part);
-            non_threaded_parts_mutex.unlock();
+            mult(A21, B12, C22, MatMulMode::Add); 
+            mult(A22, B22, C22, MatMulMode::Add); 
 
-            for (const auto& part : parts_to_do_in_this_thread) 
-                mult(part[0], part[1], part[2], MatMulMode::Add);
-
-            non_threaded_parts_mutex.lock();
-            for (const auto& part : parts_to_do_in_this_thread) 
-                non_threaded_parts.erase(part);
-            non_threaded_parts_mutex.unlock();
-
-            for (auto& thread : threads)
-            {
-                thread.join();
-                thread_count--;
-            }
-        }
-
-        static bool is_threaded_part(MatrixView A, MatrixView B, MatrixView C)
-        {
-            std::lock_guard<std::mutex> lock(non_threaded_parts_mutex);
-            bool res = non_threaded_parts.find({A, B, C}) == non_threaded_parts.end();
-            //std::cout << std::format("{} {} {}: {}", A.row_count(), A.col_count(), B.col_count(), res) << std::endl;
-            return res;
+            for (auto& thread : threads) thread.join();
         }
     };
 
@@ -345,9 +283,9 @@ public:
         return result;
     }
 
-    static MatrixMultiplier possibly_multithreaded(const MatrixMultiplier& multiplier)
+    static MatrixMultiplier possibly_multithreaded(Multiplier::PreconditionTypeWithSizes until, const MatrixMultiplier& multiplier)
     {
-        return add_strategy(MultithreadedRecursiveMultiplier::is_threaded_part, 
+        return add_strategy(until, 
                             MultithreadedRecursiveMultiplier{},
                             multiplier);
     }
@@ -387,7 +325,14 @@ public:
 
     static MatrixMultiplier multithreaded_hybrid_multiplier(int N, int M, int P)
     {
-        return possibly_multithreaded(hybrid_multiplier(N, M, P));
+        int max_power_of_2_less_than_NMP = 1 << (int)log2(std::min({N, M, P}));
+        return  
+                possibly_multithreaded([N](int n, int, int){ return n > (N / 4 + 1); },
+                into_blocks_then(max_power_of_2_less_than_NMP / 4,
+                strassen_then ([](int n, int m, int p){ return n * m + m * p + n * p > getL1CacheSize() / sizeof(int); },
+                recursive_then([](int n, int m, int p){ return n * m + m * p + n * p > getL1CacheSize() / sizeof(int); },
+                naive_cache_friendly_mutliplier
+        ))));
     }
 
     void operator()(MatrixView A, MatrixView B, MatrixView C, MatMulMode mode) const
